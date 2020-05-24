@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+import os
+import requests
+import datetime
+import getpass
+import git
+import sys
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\u001b[36m'
+    OKGREEN = '\033[92m'
+    WARNING = '\u001b[31;1m'
+    YELLOW = '\u001b[33;1m'
+    ENDC = '\033[0m'
+
+def print_remote(remote):
+    print(bcolors.HEADER + '\tREMOTE' + bcolors.ENDC)
+    print('\t\t'+remote+'\n')
+
+def print_branch(remote):
+    print(bcolors.HEADER + '\tBRANCH' + bcolors.ENDC)
+    print('\t\t'+branch+'\n')
+
+def print_approvals(activities):
+    approvals = [act for act in activities if act['action']=='APPROVED']
+    print(bcolors.OKGREEN + '\tAPPROVALS' + bcolors.ENDC)
+    for approval in approvals:
+        print('\t\tUser: ' + approval['user']['displayName'])
+        print('\t\tTime: ' + str(datetime.datetime.fromtimestamp(approval['createdDate']/1000.0))+'\n')
+    print('\n')   
+
+def print_reviews(activities):
+    reviews = [act for act in activities if act['action']=='REVIEWED']
+    print(bcolors.WARNING + '\tNEEDS WORK' + bcolors.ENDC)
+    for review in reviews:
+        print('\t\tUser: ' + review['user']['displayName'])
+        print('\t\tTime: ' + str(datetime.datetime.fromtimestamp(review['createdDate']/1000.0))+'\n')
+    print('\n')        
+
+def pull_request_for_branch(base_url):
+    pullReqsUrl = base_url + '?state=open'
+    pull_requests = requests.get(pullReqsUrl, auth=auth).json()['values']
+    filt = [pr for pr in pull_requests if(pr['fromRef']['displayId'] == branch)]
+    if len(filt) == 0:
+        print('No open pull requests for branch '+ branch)
+        sys.exit()
+    return filt[0]    
+
+def get_all_activities(base_url, id):
+    activitiesUrl = base_url + id + '/activities'
+    return requests.get(activitiesUrl, auth=auth).json()['values']
+
+
+def print_comments(activities):
+    comments = [act for act in activities if act['action']=='COMMENTED' and act['comment']['state']=='OPEN' ]
+    print(bcolors.YELLOW + '\tCOMMENTS'+bcolors.ENDC)
+    for comment in comments:
+        print('\t\tUser: ' + comment['user']['displayName'])
+        print('\t\tTime: ' + str(datetime.datetime.fromtimestamp(comment['createdDate']/1000.0)))
+        try:
+            file = comment['commentAnchor']['path'] + ':' + str(comment['commentAnchor']['line'])
+        except KeyError:    
+            file = 'N/A'
+        finally:    
+            print('\t\tFile: ' + file)
+            print('\t\tComment: ' + comment['comment']['text'])
+            print('\n')
+
+
+def print_goTo():
+    print(bcolors.OKBLUE + '\tPULL REQUEST' + bcolors.ENDC)
+    print('\t\thttps://'+url_base+'/projects/'+slug+'/repos/'+repo+'/pull-requests/'+prId+'/overview')
+    print('\n')
+
+def ask_for_password():
+    return getpass.getpass('BitBucket password:')
+
+def get_user():
+    user = ''
+    try:
+        user = os.environ['BITBUCKET_USER']
+    except KeyError:
+        print('BitBucket username:')
+        user = str(input())
+        os.putenv('BITBUCKET_USER', user)
+    finally:
+        return user
+
+def get_pass():
+    try:
+        passw = os.environ['BITBUCKET_PASS']
+    except KeyError:   
+        print('BitBucket password:')
+        passw = getpass.getpass('')
+        os.putenv('BITBUCKET_PASS', passw)
+    finally:    
+        return passw    
+
+user = get_user()
+passw = get_pass()
+
+repo = git.Repo(search_parent_directories=True)
+branch = repo.active_branch.name
+
+remote = repo.remotes[0].config_reader.get("url")
+splitRemote = repo.remotes[0].config_reader.get("url").replace("ssh://git@", "").replace(".git","").split("/")
+url_base = splitRemote[0]
+slug = splitRemote[1]
+repo = splitRemote[2]
+
+print_remote(remote)
+print_branch(branch)
+
+rest_api_base_url = 'https://'+url_base+'/rest/api/1.0/projects/'+slug+'/repos/'+repo+'/pull-requests/'
+auth = (user, passw)
+
+prId = str(pull_request_for_branch(rest_api_base_url)['id'])
+print_goTo()
+activities = get_all_activities(rest_api_base_url, prId)
+print_reviews(activities)
+print_approvals(activities)
+print_comments(activities)
