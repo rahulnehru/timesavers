@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
-import pip
-import importlib
 import os
-
-def pip_install(package): 
-    pip.main(['install', package])
-
-def install_and_import(package):
-    try:
-        importlib.import_module(package)
-    finally:
-        globals()[package] = importlib.import_module(package)
-
-install_and_import('requests')
-install_and_import('datetime')
-install_and_import('getpass')
-    
-try:
-    import git
-except ImportError:
-    pip_install('gitpython')
-    import git
+import requests
+import datetime
+import getpass
+import git
+import sys
 
 class bcolors:
     HEADER = '\033[95m'
@@ -60,7 +44,7 @@ def pull_request_for_branch(base_url):
     filt = [pr for pr in pull_requests if(pr['fromRef']['displayId'] == branch)]
     if len(filt) == 0:
         print('No open pull requests for branch '+ branch)
-        quit()
+        sys.exit()
     return filt[0]    
 
 def get_all_activities(base_url, id):
