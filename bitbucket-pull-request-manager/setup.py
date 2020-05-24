@@ -17,5 +17,5 @@ setup(
     install_requires=[
         "os", "requests", "getpass", "gitpython", "datetime", "sys"
     ],
-    entry_points={"console_scripts": ["bbrp=bbpr"]},
+    entry_points={"console_scripts": ["bbpr=bbpr"]},
 )
