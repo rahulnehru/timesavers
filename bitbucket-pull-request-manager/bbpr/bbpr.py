@@ -2,7 +2,6 @@
 import os
 import requests
 import datetime
-import getpass
 import git
 import sys
 
@@ -18,7 +17,7 @@ def print_remote(remote):
     print(bcolors.HEADER + '\tREMOTE' + bcolors.ENDC)
     print('\t\t'+remote+'\n')
 
-def print_branch(remote):
+def print_branch(branch):
     print(bcolors.HEADER + '\tBRANCH' + bcolors.ENDC)
     print('\t\t'+branch+'\n')
 
@@ -38,7 +37,7 @@ def print_reviews(activities):
         print('\t\tTime: ' + str(datetime.datetime.fromtimestamp(review['createdDate']/1000.0))+'\n')
     print('\n')        
 
-def pull_request_for_branch(base_url):
+def pull_request_for_branch(auth, base_url, branch):
     pullReqsUrl = base_url + '?state=open'
     pull_requests = requests.get(pullReqsUrl, auth=auth).json()['values']
     filt = [pr for pr in pull_requests if(pr['fromRef']['displayId'] == branch)]
@@ -47,7 +46,7 @@ def pull_request_for_branch(base_url):
         sys.exit()
     return filt[0]    
 
-def get_all_activities(base_url, id):
+def get_all_activities(auth, base_url, id):
     activitiesUrl = base_url + id + '/activities'
     return requests.get(activitiesUrl, auth=auth).json()['values']
 
@@ -68,56 +67,35 @@ def print_comments(activities):
             print('\n')
 
 
-def print_goTo():
+def print_go_to(url_base, slug, repo, pr_id):
     print(bcolors.OKBLUE + '\tPULL REQUEST' + bcolors.ENDC)
-    print('\t\thttps://'+url_base+'/projects/'+slug+'/repos/'+repo+'/pull-requests/'+prId+'/overview')
+    print('\t\thttps://'+url_base+'/projects/'+slug+'/repos/'+repo+'/pull-requests/'+pr_id+'/overview')
     print('\n')
 
-def ask_for_password():
-    return getpass.getpass('BitBucket password:')
 
-def get_user():
-    user = ''
-    try:
-        user = os.environ['BITBUCKET_USER']
-    except KeyError:
-        print('BitBucket username:')
-        user = str(input())
-        os.putenv('BITBUCKET_USER', user)
-    finally:
-        return user
+def print_branch_details(remote, branch):
+    print_remote(remote)
+    print_branch(branch)
 
-def get_pass():
-    try:
-        passw = os.environ['BITBUCKET_PASS']
-    except KeyError:   
-        print('BitBucket password:')
-        passw = getpass.getpass('')
-        os.putenv('BITBUCKET_PASS', passw)
-    finally:    
-        return passw    
+def print_activities(auth, rest_api_base_url, slug, repo, pr_id):
+    activities = get_all_activities(auth, rest_api_base_url, pr_id)
+    print_reviews(activities)
+    print_approvals(activities)
+    print_comments(activities)
 
-user = get_user()
-passw = get_pass()
+def check_status(auth):
+    repo = git.Repo(search_parent_directories=True)
+    branch = repo.active_branch.name
+    remote = repo.remotes[0].config_reader.get("url")
+    deconstructed_url = repo.remotes[0].config_reader.get("url").replace("ssh://git@", "").replace(".git","").split("/")
+    url_base = deconstructed_url[0]
+    slug = deconstructed_url[1]
+    repo = deconstructed_url[2]
 
-repo = git.Repo(search_parent_directories=True)
-branch = repo.active_branch.name
+    print_branch_details(remote, branch)
 
-remote = repo.remotes[0].config_reader.get("url")
-splitRemote = repo.remotes[0].config_reader.get("url").replace("ssh://git@", "").replace(".git","").split("/")
-url_base = splitRemote[0]
-slug = splitRemote[1]
-repo = splitRemote[2]
+    rest_api_base_url = 'https://'+url_base+'/rest/api/1.0/projects/'+slug+'/repos/'+repo+'/pull-requests/'
 
-print_remote(remote)
-print_branch(branch)
-
-rest_api_base_url = 'https://'+url_base+'/rest/api/1.0/projects/'+slug+'/repos/'+repo+'/pull-requests/'
-auth = (user, passw)
-
-prId = str(pull_request_for_branch(rest_api_base_url)['id'])
-print_goTo()
-activities = get_all_activities(rest_api_base_url, prId)
-print_reviews(activities)
-print_approvals(activities)
-print_comments(activities)
+    pr_id = str(pull_request_for_branch(auth, rest_api_base_url, branch)['id'])
+    print_go_to(url_base, slug, repo, pr_id)
+    print_activities(auth, rest_api_base_url, slug, repo, pr_id)
