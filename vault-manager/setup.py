@@ -3,6 +3,9 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open('requirements.txt', "r") as f:
+    install_requires = f.readlines()
+
 setuptools.setup(
     name="volt",
     version="0.0.1",
@@ -19,8 +22,6 @@ setuptools.setup(
     ],
     packages=["volt"],
     include_package_data=True,
-    install_requires=[
-        "os", "click", "hvac", "json", "pprint", "sys"
-    ],
-    entry_points={"console_scripts": ["volt=volt"]},
+    install_requires=install_requires,
+    entry_points={"console_scripts": ["volt=volt.volt:main"]},
 )

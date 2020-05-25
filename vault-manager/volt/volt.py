@@ -5,6 +5,7 @@ import os
 import json
 import pprint
 import sys
+import requests
 
 client = hvac.Client()
 
@@ -58,7 +59,7 @@ def auth(username, password):
 
 
 @click.command(help = "Read secret from a Vault path")
-@click.option('--path', help = 'Path you wish to read')
+@click.argument('--path')
 @click.option('--output', default='console', help='Either `file` or `console`')
 def read(path, output):
     if output != 'console' and output != 'file': 
@@ -74,6 +75,8 @@ def read(path, output):
         invalid_path(path)
     except hvac.exceptions.Forbidden:
         forbidden_access_to_path(path)
+    except ConnectionError:
+        print('Check your vault address is exported!')
 
 @click.command(help = "List secrets in a Vault path")
 @click.option('--path', help = 'Path you wish to list')
@@ -85,7 +88,8 @@ def list(path):
         invalid_path(path)
     except hvac.exceptions.Forbidden:
         forbidden_access_to_path(path)
-
+    except ConnectionError:
+        print('Check your vault address is exported!')
 
 def fetch_level_data(path):
     keys = client.secrets.kv.v1.list_secrets(path=path,mount_point='')['data']['keys']
@@ -107,6 +111,8 @@ def snapshot(path):
         invalid_path(path)
     except hvac.exceptions.Forbidden:
         forbidden_access_to_path(path)
+    except ConnectionError:
+        print('Check your vault address is exported!')
 
 @click.command(help = "Delete a secret from Vault")
 @click.option('--path', help = 'Path of secrets you want to delete')
@@ -125,7 +131,8 @@ def delete(path):
         invalid_path(path)
     except hvac.exceptions.Forbidden:
         forbidden_access_to_path(path)            
-
+    except ConnectionError:
+        print('Check your vault address is exported!')
 
 def update(path, data, key, value):
     data[key] = value
@@ -142,6 +149,8 @@ def parse_json_file(file):
     except json.decoder.JSONDecodeError:
         print('File does not contain valid JSON')
         sys.exit()    
+    except ConnectionError:
+        print('Check your vault address is exported!')
 
 @click.command(help = "Update or create a key in a Vault secret")
 @click.option('--path', help="Path of the secret to patch")
@@ -179,7 +188,8 @@ def patch(path, key, value, file):
         print('Try running $volt write')
     except hvac.exceptions.Forbidden:
         forbidden_access_to_path(path)                
-
+    except ConnectionError:
+        print('Check your vault address is exported!')
 
 
 def put(path, secret):
@@ -189,7 +199,12 @@ def put(path, secret):
     except hvac.exceptions.InvalidPath: 
         invalid_path(path)
     except hvac.exceptions.Forbidden:
-        forbidden_access_to_path(path) 
+        forbidden_access_to_path(path)
+    except ConnectionError:
+        print('Check your vault address is exported!')
+
+def could_not_connect():
+    print("Could not connect to Vault")
 
 @click.command(help = "Create a new Vault secret")
 @click.option('--path', help = "Path of the secret to write")
@@ -213,14 +228,15 @@ def write(path, file, key, value):
                    
 
 
-cli.add_command(delete)
-cli.add_command(auth)    
-cli.add_command(read)
-cli.add_command(list)
-cli.add_command(snapshot)
-cli.add_command(patch)
-cli.add_command(write)
 
-if __name__ == '__main__':
-    cli()
+
+def main():
+    cli.add_command(delete)
+    cli.add_command(auth)    
+    cli.add_command(read)
+    cli.add_command(list)
+    cli.add_command(snapshot)
+    cli.add_command(patch)
+    cli.add_command(write)
+    return cli()
     
