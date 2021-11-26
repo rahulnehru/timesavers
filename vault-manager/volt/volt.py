@@ -59,7 +59,7 @@ def auth(username, password):
 
 
 @click.command(help = "Read secret from a Vault path")
-@click.argument('--path')
+@click.argument('path')
 @click.option('--output', default='console', help='Either `file` or `console`')
 def read(path, output):
     if output != 'console' and output != 'file': 
@@ -79,7 +79,7 @@ def read(path, output):
         print('Check your vault address is exported!')
 
 @click.command(help = "List secrets in a Vault path")
-@click.option('--path', help = 'Path you wish to list')
+@click.argument('path')
 def list(path):
     try:
         secret = client.secrets.kv.v1.list_secrets(path=path,mount_point='')['data']['keys']
@@ -102,7 +102,7 @@ def fetch_level_data(path):
     return data        
 
 @click.command(help = "Take a snapshot of all the secrets in a Vault path to a JSON file")
-@click.option('--path', help='Path you wish to save a snapshot of')
+@click.argument('path')
 def snapshot(path):
     try:
         data = fetch_level_data(path) 
@@ -207,7 +207,7 @@ def could_not_connect():
     print("Could not connect to Vault")
 
 @click.command(help = "Create a new Vault secret")
-@click.option('--path', help = "Path of the secret to write")
+@click.argument('path')
 @click.option('--file', default = None, help = "Path of JSON file containing data to write (useful if more than one secret is being written)")
 @click.option('--key', default = 'value', help = "Key of the secret to write, defaults to `value`")
 @click.option('--value', default = None, help = "Value of the secret to write")
@@ -240,3 +240,5 @@ def main():
     cli.add_command(write)
     return cli()
     
+if __name__=="__main__":
+    main()
